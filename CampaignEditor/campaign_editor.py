@@ -106,23 +106,33 @@ class DynamicForm(ttk.Frame):
         if self.current_data is None:
             return
             
+        new_values = {}
         for key, (val_type, widget_or_var) in self.form_widgets.items():
             new_val = None
             if val_type == 'bool':
                 new_val = widget_or_var.get()
             elif val_type == 'text':
-                new_val = widget_or_var.get("1.0", tk.END).strip()
+                new_val = widget_or_var.get("1.0", "end-1c")
             else:
                 raw_val = widget_or_var.get()
                 if val_type == 'int':
-                    try: new_val = int(raw_val)
-                    except ValueError: new_val = raw_val
+                    try: 
+                        new_val = int(raw_val)
+                    except ValueError: 
+                        messagebox.showerror("Type Error", f"Invalid integer for '{key}': {raw_val}")
+                        return
                 elif val_type == 'float':
-                    try: new_val = float(raw_val)
-                    except ValueError: new_val = raw_val
+                    try: 
+                        new_val = float(raw_val)
+                    except ValueError: 
+                        messagebox.showerror("Type Error", f"Invalid float for '{key}': {raw_val}")
+                        return
                 else:
                     new_val = raw_val
-            self.current_data[key] = new_val
+            new_values[key] = new_val
+            
+        for key, val in new_values.items():
+            self.current_data[key] = val
             
         if self.on_change_callback:
             self.on_change_callback()
@@ -147,6 +157,14 @@ class ListEditorTab(ttk.Frame):
         self.search_entry.pack(fill=tk.X, pady=(0, 5))
         self.search_entry.insert(0, "Search...")
         self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.delete(0, tk.END) if self.search_var.get() == "Search..." else None)
+        
+        # Add/Delete buttons
+        self.btn_frame = ttk.Frame(self.left_frame)
+        self.btn_frame.pack(fill=tk.X, pady=(0, 5))
+        self.btn_add = ttk.Button(self.btn_frame, text="Add", command=self.add_item)
+        self.btn_add.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 2))
+        self.btn_delete = ttk.Button(self.btn_frame, text="Delete", command=self.delete_item)
+        self.btn_delete.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(2, 0))
         
         self.listbox = tk.Listbox(self.left_frame)
         self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -201,6 +219,41 @@ class ListEditorTab(ttk.Frame):
         display_name = str(item.get(self.display_key, f"Item {idx}"))
         self.form.load_data(item, title=f"Editing: {display_name}")
 
+    def add_item(self):
+        new_item = {self.display_key: "New Item"}
+        # Try to infer structure from existing items
+        if self.data_list and isinstance(self.data_list[0], dict):
+            for k, v in self.data_list[0].items():
+                if k != self.display_key:
+                    if isinstance(v, str): new_item[k] = ""
+                    elif isinstance(v, int): new_item[k] = 0
+                    elif isinstance(v, float): new_item[k] = 0.0
+                    elif isinstance(v, bool): new_item[k] = False
+                    elif isinstance(v, list): new_item[k] = []
+                    elif isinstance(v, dict): new_item[k] = {}
+        self.data_list.append(new_item)
+        
+        if self.search_var.get() != "Search...":
+            self.search_var.set("Search...")
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.insert(0, "Search...")
+            
+        self.update_list()
+        self.listbox.selection_clear(0, tk.END)
+        self.listbox.selection_set(tk.END)
+        self.listbox.see(tk.END)
+        self.on_select(None)
+        
+    def delete_item(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            return
+        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this item?"):
+            idx = self.filtered_indices[selection[0]]
+            del self.data_list[idx]
+            self.form.load_data(None, title="No item selected")
+            self.update_list()
+
 class CampaignEditor(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -209,7 +262,6 @@ class CampaignEditor(tk.Tk):
         
         self.campaign_dir = None
         self.data = {}
-        self.files_to_load = ["campaign_meta.json", "programmatic_start.json", "game_state.json"]
         
         self.setup_ui()
         
@@ -242,7 +294,20 @@ class CampaignEditor(tk.Tk):
         self.campaign_dir = directory
         self.data = {}
         
-        for filename in self.files_to_load:
+        # Dynamically load all .json files in the directory
+        try:
+            json_files = [f for f in os.listdir(self.campaign_dir) if f.endswith('.json')]
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read directory:\n{e}")
+            return
+            
+        # Ensure core files exist in data even if not on disk yet
+        core_files = ["campaign_meta.json", "programmatic_start.json", "game_state.json"]
+        for f in core_files:
+            if f not in json_files:
+                json_files.append(f)
+                
+        for filename in json_files:
             filepath = os.path.join(self.campaign_dir, filename)
             if os.path.exists(filepath):
                 try:
