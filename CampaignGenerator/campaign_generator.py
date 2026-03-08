@@ -233,6 +233,11 @@ Return ONLY valid JSON. Do not include markdown formatting like ```json."""
                 
             campaign_data = json.loads(content)
             
+            # Add filler values for ai_notes and game_notes
+            if "game_state" in campaign_data:
+                campaign_data["game_state"]["ai_notes"] = "Enter AI notes here..."
+                campaign_data["game_state"]["game_notes"] = "Enter game notes here..."
+            
             self.root.after(0, self.save_campaign, campaign_data)
             
         except Exception as e:
