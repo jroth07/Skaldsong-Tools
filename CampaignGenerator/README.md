@@ -12,17 +12,32 @@ A tool to generate tabletop RPG campaigns using the OpenRouter API.
 ## Requirements
 
 - Python 3.6+
-- `requests` library (`pip install requests`)
 - An OpenRouter API Key (get one at [openrouter.ai](https://openrouter.ai/))
 
 ## Usage
 
-1. Install the required dependencies:
+1. Navigate to the `CampaignGenerator` directory:
    ```bash
-   pip install requests
+   cd CampaignGenerator
    ```
 
-2. Run the generator:
+2. Create and activate a virtual environment:
+   ```bash
+   # Windows
+   python -m venv venv
+   venv\Scripts\activate
+
+   # macOS/Linux
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Run the generator:
    ```bash
    python campaign_generator.py
    ```
