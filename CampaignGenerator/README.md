@@ -51,34 +51,14 @@ A tool to generate tabletop RPG campaigns using the OpenRouter API.
 
 ## Output Format
 
-The generated campaign is saved as a directory containing a `campaign.json` file with the following structure:
+The generated campaign is saved as a directory containing the following structure:
 
-```json
-{
-  "title": "Campaign Title",
-  "description": "A brief description of the campaign.",
-  "setting": "Description of the setting.",
-  "chapters": [
-    {
-      "title": "Chapter 1 Title",
-      "description": "What happens in this chapter.",
-      "encounters": [
-        {
-          "name": "Encounter Name",
-          "type": "combat|social|exploration",
-          "description": "Details of the encounter."
-        }
-      ]
-    }
-  ],
-  "npcs": [
-    {
-      "name": "NPC Name",
-      "role": "Role in the story",
-      "description": "Description of the NPC."
-    }
-  ]
-}
+```
+campaign_name/
+├── images/
+├── campaign_meta.json
+├── game_state.json
+└── programmatic_start.json
 ```
 
 This directory can be edited directly using the `CampaignEditor`. You can also export it to a `.campaign` file (a ZIP archive) for distribution.

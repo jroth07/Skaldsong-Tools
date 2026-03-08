@@ -1,6 +1,7 @@
 import os
 import json
 import zipfile
+import re
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import requests
@@ -76,29 +77,125 @@ class CampaignGeneratorApp:
 Generate a detailed campaign structure in JSON format based on the user's prompt.
 The JSON should have the following structure:
 {
-  "title": "Campaign Title",
-  "description": "A brief description of the campaign.",
-  "setting": "Description of the setting.",
-  "chapters": [
-    {
-      "title": "Chapter 1 Title",
-      "description": "What happens in this chapter.",
-      "encounters": [
-        {
-          "name": "Encounter Name",
-          "type": "combat|social|exploration",
-          "description": "Details of the encounter."
-        }
-      ]
-    }
-  ],
-  "npcs": [
-    {
-      "name": "NPC Name",
-      "role": "Role in the story",
-      "description": "Description of the NPC."
-    }
-  ]
+  "campaign_meta": {
+    "title": "Campaign Title",
+    "description": "A brief description of the campaign.",
+    "music_files": []
+  },
+  "game_state": {
+    "currency_name": "Gold",
+    "date": "01 Jan, 1000",
+    "distance_measurement": "Miles, m",
+    "distance_measurement_number": "25",
+    "game_loop": "Describe the core gameplay loop.",
+    "genre": "Fantasy",
+    "imagegen_style": "Fantasy Art",
+    "location_description": "Initial location description.",
+    "party_grid_coordinates": [0, 0],
+    "party_location": {
+      "name": "Starting Location",
+      "description": "Description of the starting location.",
+      "location_type": "city",
+      "grid_position": [0, 0],
+      "sub_grid_position": [50, 50],
+      "is_civilized": true
+    },
+    "setting": "Description of the setting.",
+    "time": "08:00",
+    "game_characters": [
+      {
+        "name": "NPC Name",
+        "role": "Role in the story",
+        "description": "Description of the NPC."
+      }
+    ],
+    "locations": [
+      {
+        "name": "Location Name",
+        "description": "Description of the location."
+      }
+    ],
+    "factions": [
+      {
+        "name": "Faction Name",
+        "description": "Description of the faction."
+      }
+    ],
+    "lorebook_entries": [
+      {
+        "name": "Chapter 1 Title",
+        "description": "What happens in this chapter.",
+        "encounters": [
+          {
+            "name": "Encounter Name",
+            "type": "combat|social|exploration",
+            "description": "Details of the encounter."
+          }
+        ]
+      }
+    ]
+  },
+  "programmatic_start": {
+    "allow_custom_character": true,
+    "predefined_characters": [],
+    "steps": [
+      {
+        "id": "char_name",
+        "type": "text_input",
+        "question": "What is your character's name?",
+        "placeholder": "Enter your name...",
+        "use_ai_generation": true,
+        "collect_data": { "Name": "{value}" }
+      },
+      {
+        "id": "char_appearance",
+        "type": "text_input",
+        "question": "Describe your appearance:",
+        "placeholder": "Tall with dark hair...",
+        "multiline": true,
+        "use_ai_generation": true,
+        "collect_data": { "BodyAppearance": "{value}" }
+      },
+      {
+        "id": "char_background",
+        "type": "text_input",
+        "question": "Tell your backstory:",
+        "placeholder": "An orphan from a distant land...",
+        "multiline": true,
+        "use_ai_generation": true,
+        "collect_data": { "BackgroundHistory": "{value}" }
+      },
+      {
+        "id": "stats",
+        "type": "stat_allocation",
+        "question": "Distribute your ability scores:",
+        "description": "You have 30 points to allocate (each stat starts at 10)",
+        "point_pool": 30,
+        "min_value": 8,
+        "max_value": 50,
+        "default_value": 10,
+        "stats": ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"],
+        "stat_codes": ["Str", "Dex", "Con", "Int", "Wis", "Cha"],
+        "use_ai_generation": true,
+        "collect_data": { "Stats": "{value}" }
+      },
+      {
+        "id": "review",
+        "type": "review",
+        "question": "Review your character:",
+        "description": "The AI will generate a complete character based on your choices.",
+        "use_ai_generation": true,
+        "options": [
+          {
+            "label": "Create Character with AI",
+            "value": "confirm",
+            "finalize_tags": "[Create_Character Name=\"{Name}\" BackgroundHistory=\"{BackgroundHistory}\" BodyAppearance=\"{BodyAppearance}\" Stats=\"{Stats}\" Raw=\"True\" IsNPC=\"False\" InParty=\"True\"]"
+          }
+        ]
+      }
+    ],
+    "title": "Campaign Setup"
+  }
 }
 Return ONLY valid JSON. Do not include markdown formatting like ```json."""
 
@@ -123,12 +220,16 @@ Return ONLY valid JSON. Do not include markdown formatting like ```json."""
             content = result['choices'][0]['message']['content'].strip()
             
             # Clean up potential markdown
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            content = content.strip()
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+            if match:
+                content = match.group(1)
+            else:
+                # Fallback: try to find the first { and last }
+                start_idx = content.find('{')
+                end_idx = content.rfind('}')
+                if start_idx != -1 and end_idx != -1:
+                    content = content[start_idx:end_idx+1]
                 
             campaign_data = json.loads(content)
             
@@ -146,7 +247,8 @@ Return ONLY valid JSON. Do not include markdown formatting like ```json."""
         self.status_var.set("Campaign generated successfully. Select save directory.")
         self.generate_btn.config(state=tk.NORMAL)
         
-        default_name = campaign_data.get("title", "Generated Campaign").replace(" ", "_").lower()
+        meta = campaign_data.get("campaign_meta", {})
+        default_name = meta.get("title", campaign_data.get("title", "Generated Campaign")).replace(" ", "_").lower()
         
         # Ask for a directory to save the extracted format
         dir_path = filedialog.askdirectory(
@@ -162,10 +264,23 @@ Return ONLY valid JSON. Do not include markdown formatting like ```json."""
             campaign_dir = os.path.join(dir_path, default_name)
             os.makedirs(campaign_dir, exist_ok=True)
             
-            # Save campaign.json
-            json_path = os.path.join(campaign_dir, "campaign.json")
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(campaign_data, f, indent=4)
+            # Create images directory
+            os.makedirs(os.path.join(campaign_dir, "images"), exist_ok=True)
+            
+            # Save campaign_meta.json
+            meta_path = os.path.join(campaign_dir, "campaign_meta.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(campaign_data.get("campaign_meta", {}), f, indent=4)
+                
+            # Save game_state.json
+            state_path = os.path.join(campaign_dir, "game_state.json")
+            with open(state_path, "w", encoding="utf-8") as f:
+                json.dump(campaign_data.get("game_state", {}), f, indent=4)
+                
+            # Save programmatic_start.json
+            prog_path = os.path.join(campaign_dir, "programmatic_start.json")
+            with open(prog_path, "w", encoding="utf-8") as f:
+                json.dump(campaign_data.get("programmatic_start", {}), f, indent=4)
                 
             self.current_campaign_dir = campaign_dir
             self.export_btn.config(state=tk.NORMAL)
