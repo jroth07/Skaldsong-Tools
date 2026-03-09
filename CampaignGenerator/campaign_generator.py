@@ -123,11 +123,11 @@ The JSON should have the following structure:
     ],
     "lorebook_entries": [
       {
-        "name": "Chapter 1 Title",
-        "description": "What happens in this chapter.",
+        "name": "Lore Entry Title (e.g., The Ancient War, Magic System, The First King)",
+        "description": "Detailed background lore, history, or rules for the AI to reference. These are not story chapters, but world-building details.",
         "encounters": [
           {
-            "name": "Encounter Name",
+            "name": "Encounter Name (if this lore triggers a specific encounter)",
             "type": "combat|social|exploration",
             "description": "Details of the encounter."
           }
@@ -253,7 +253,9 @@ Return ONLY valid JSON. Do not include markdown formatting like ```json."""
         self.generate_btn.config(state=tk.NORMAL)
         
         meta = campaign_data.get("campaign_meta", {})
-        default_name = meta.get("title", campaign_data.get("title", "Generated Campaign")).replace(" ", "_").lower()
+        raw_name = meta.get("title", campaign_data.get("title", "Generated Campaign"))
+        # Replace spaces with underscores, convert to lowercase, and remove invalid characters
+        default_name = re.sub(r'[^\w\-]', '', raw_name.replace(" ", "_").lower())
         
         # Ask for a directory to save the extracted format
         dir_path = filedialog.askdirectory(
